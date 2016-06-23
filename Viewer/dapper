@@ -1,0 +1,23 @@
+local g, b = colours.green, colours.blue
+local logo = {{0,0,0,b,g,g,g,g,g,b},{0,b,b,g,g,g,g,g,g,g,b,b},{b,b,b,b,g,g,g,g,g,b,b,b,b},{b,g,b,b,b,g,g,g,b,b,b,b,g},{b,b,b,b,b,g,b,b,b,b,b,b,g},{b,b,b,b,b,b,g,g,b,b,b,b,b},{b,b,b,b,b,g,g,g,g,g,b,b,b},{0,b,b,b,b,b,g,g,g,g,b,b},{0,0,0,b,b,b,b,g,g,b}}
+
+local width, height = term.getSize()
+term.setBackgroundColour(colours.black)
+term.clear()
+
+local logoWidth, logoHeight = 13, 9
+local logoY = math.ceil((height - logoHeight) / 2) - 2
+paintutils.drawImage(logo, math.ceil((width - logoWidth) / 2), logoY)
+
+local splashText = "A Rather Dapper Mapper"
+term.setCursorPos(1 + math.ceil((width - #splashText) / 2), logoY + logoHeight + 2)
+term.setBackgroundColour(colours.black)
+term.setTextColor(colours.white)
+term.write(splashText)
+
+term.setCursorPos(math.ceil((width - 7) / 2), logoY + logoHeight + 3)
+term.setTextColor(colours.lightBlue)
+term.write("by oeed")
+
+sleep(2)
+os.reboot()
