@@ -1,0 +1,59 @@
+local args = {...}
+if #args > 1 then
+	print("Usage: mapserver <database path>")
+	return
+end
+
+local DAPPER_CLIENT_REQUEST_CHANNEL = 4261
+local DAPPER_CLIENT_DATA_CHANNEL = 4262
+local DAPPER_SCAN_DATA_CHANNEL = 4271
+
+local DAPPER_CLIENT_REQUEST_MAP = "mapdata"
+
+print("Dapper Mapper Server by oeed")
+local modem = peripheral.find("modem")
+if not modem or not modem.isWireless() then
+	error("Please connect a wireless modem and re-run the program.", 0)
+end
+
+print("Loading map database...")
+local database
+local databasePath = args[1] and args[1] or "/database"
+if fs.exists(databasePath) then
+	local h = fs.open(databasePath, "r")
+	if h then
+		database = textutils.unserialize(h.readAll())
+		h.close()
+	end
+	if not database then
+		error("Failed to read database '" .. databasePath .. "', it may be corrupt.")
+	end
+else
+	database = {
+		blocks = {},
+		waypoints = {}
+	}
+end
+
+modem.open(DAPPER_SCAN_CHANNEL)
+modem.open(DAPPER_CLIENT_CHANNEL)
+print("Awaiting requests...")
+
+local function broadcastMap()
+	print("Broadcasting our map data...")
+end
+
+while true do
+	local event, side, senderChannel, replyChannel, message, distance = os.pullEvent("modem_message")
+	if senderChannel == DAPPER_SCAN_CHANNEL then
+		print("Received new map data!")
+		if type(message) == "table" and type(message.x) == "number" and type(message.z) == "number" and type(message.z) == "number" and type(message.block) == "table" then
+			
+		end
+	elseif senderChannel == DAPPER_CLIENT_CHANNEL then
+		if message == DAPPER_CLIENT_REQUEST_MAP then
+			print("A client requested map data!")
+			broadcastMap()
+		end
+	end
+end
