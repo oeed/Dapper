@@ -17,10 +17,10 @@
 		{ {}, {" ", colours.blue, colours.blue} }
 	},
 	["minecraft:lava"] = {
-		{ {}, {"%", colours.red, colours.orange} }
+		{ {}, {"*", colours.yellow, colours.orange} }
 	},
 	["minecraft:flowing_lava"] = {
-		{ {}, {"%", colours.red, colours.orange} }
+		{ {}, {"*", colours.yellow, colours.orange} }
 	},
 	["minecraft:leaves"] = {
 		{ {variant="oak"},{"*", colours.lime, colours.green} },
