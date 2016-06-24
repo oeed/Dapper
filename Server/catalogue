@@ -22,7 +22,7 @@
 		{ {},{"*", colours.lime, colours.green} },
 	},
 	["minecraft:tallgrass"] = {
-		{ {type="tall_gass"}, {"%", colours.green, colours.lime} },
+		{ {type="tall_grass"}, {"%", colours.green, colours.lime} },
 		{ {type="dead_bush"}, {"%", colours.brown, colours.lime} },
 		{ {type="fern"}, {"*", colours.green, colours.lime} }
 	},
