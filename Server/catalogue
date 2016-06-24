@@ -6,10 +6,20 @@
 		{ {snowy=false}, {" ", colours.lime, colours.lime} },
 		{ {snowy=true}, {" ", colours.white, colours.white} }
 	},
+	["minecraft:dirt"] = {
+		{ {snowy=true,variant="podzol"}, {" ", colours.white, colours.white} },
+		{ {}, {" ", colours.brown, colours.brown} }
+	},
+	["minecraft:gravel"] = {
+		{ {}, {"#", colours.brown, colours.lightGrey} }
+	},
 	["minecraft:water"] = {
 		{ {}, {" ", colours.blue, colours.blue} }
 	},
 	["minecraft:lava"] = {
+		{ {}, {"%", colours.yellow, colours.orange} }
+	},
+	["minecraft:flowing_lava"] = {
 		{ {}, {"%", colours.yellow, colours.orange} }
 	},
 	["minecraft:leaves"] = {
@@ -49,6 +59,53 @@
 		{ {type="pink_tulip"}, {"*", colours.pink, colours.lime} },
 		{ {type="oxeye_daisy"}, {"*", colours.white, colours.lime}}
 	},
+	["minecraft:stone"] = {
+		{ {variant="stone"}, {" ", colours.lightGrey, colours.lightGrey} },
+		{ {variant="granite"}, {"#", colours.lightGrey, colours.brown} },
+		{ {variant="smooth_granite"}, {" ", colours.brown, colours.brown} },
+		{ {variant="diorite"}, {"#", colours.white, colours.lightGrey} },
+		{ {variant="smooth_diorite"}, {"*", colours.white, colours.lightGrey} },
+		{ {variant="andesite"}, {"#", colours.grey, colours.lightGrey} },
+		{ {variant="smooth_andesite"}, {" ", colours.lightGrey, colours.lightGrey} },
+	},
+	["minecraft:coal_ore"] = {
+		{ {}, {"#", colours.black, colours.lightGrey} }
+	},
+	["minecraft:iron_ore"] = {
+		{ {}, {"#", colours.orange, colours.lightGrey} }
+	},
+	["minecraft:lapis_ore"] = {
+		{ {}, {"#", colours.orange, colours.lightGrey} }
+	},
+	["minecraft:gold_ore"] = {
+		{ {}, {"#", colours.yellow, colours.lightGrey} }
+	},
+	["minecraft:diamond_ore"] = {
+		{ {}, {"#", colours.lightBlue, colours.lightGrey} }
+	},
+	["minecraft:redstone_ore"] = {
+		{ {}, {"#", colours.red, colours.lightGrey} }
+	},
+	["minecraft:emerald_ore"] = {
+		{ {}, {"#", colours.lime, colours.lightGrey} }
+	},
+	["minecraft:quartz_ore"] = {
+		{ {}, {"#", colours.white, colours.red} }
+	},
+	["computercraft:CC-Peripheral"] = {
+		{ {}, {"*", colours.red, colours.lightGrey} }
+	},
+	["computercraft:CC-Computer"] = {
+		{ {advanced=true,facing="north"}, {"-", colours.black, colours.yellow} },
+		{ {advanced=true,facing="east"}, {"]", colours.black, colours.yellow} },
+		{ {advanced=true,facing="south"}, {"_", colours.black, colours.yellow} },
+		{ {advanced=true,facing="west"}, {"[", colours.black, colours.yellow} },
+		{ {advanced=false,facing="north"}, {"-", colours.black, colours.lightGrey} },
+		{ {advanced=false,facing="east"}, {"]", colours.black, colours.lightGrey} },
+		{ {advanced=false,facing="south"}, {"_", colours.black, colours.lightGrey} },
+		{ {advanced=false,facing="west"}, {"[", colours.black, colours.lightGrey} },
+	},
+
 
 
 
