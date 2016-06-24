@@ -1,0 +1,48 @@
+{
+	["minecraft:glass"] = {
+		{	
+			{}, {"#", colours.lightBlue, colours.white}
+		}
+	},
+	["minecraft:grass"] = {
+		{	
+			{snowy=false}, {" ", colours.lime, colours.lime}
+		},
+		{	
+			{snowy=true}, {" ", colours.white, colours.white}
+		}
+	},
+	["minecraft:water"] = {
+		{	
+			{}, {" ", colours.blue, colours.blue}
+		}
+	},
+	["minecraft:leaves"] = {
+		{
+			{variant="oak"},{"*", colours.lime, colours.green}
+		},
+		{
+			{variant="birch"},{"*", colours.yellow, colours.green}
+		}
+	},
+	["minecraft:tallgrass"] = {
+		{	
+			{}, {"%", colours.lime, colours.green}
+		}
+	},
+	["minecraft:yellow_flower"] = {
+		{	
+			{}, {"%", colours.yellow, colours.lime}
+		}
+	},
+	["minecraft:double_plant"] = {
+		{	
+			{variant = "double_rose"}, {"%", colours.red, colours.lime}
+		}
+	},
+	["minecraft:sand"] = {
+		{	
+			{}, {" ", colours.yellow, colours.yellow}
+		}
+	},
+}
