@@ -8,7 +8,10 @@ local DAPPER_CLIENT_REQUEST_CHANNEL = 4261
 local DAPPER_CLIENT_DATA_CHANNEL = 4262
 local DAPPER_SCAN_DATA_CHANNEL = 4263
 local DAPPER_SCAN_ACKNOWLEDGE_CHANNEL = 4264
+local DAPPER_SCAN_NEXT_REQUEST_CHANNEL = 4265
+local DAPPER_SCAN_NEXT_REPLY_CHANNEL = 4266
 
+local DAPPER_SCAN_REQUEST_NEXT = "nextblock"
 local DAPPER_CLIENT_REQUEST_MAP = "mapdata"
 
 os.setComputerLabel("Dapper Mapper Server")
@@ -28,12 +31,11 @@ if fs.exists(databasePath) then
 		h.close()
 	end
 	if not database then
-		error("Failed to read database '" .. databasePath .. "', it may be corrupt.")
+		error("Failed to read database '" .. databasePath .. "', it may be corrupt.", 0)
 	end
 else
 	database = {
-		blocks = {},
-		waypoints = {}
+		blocks = {}
 	}
 end
 
@@ -46,8 +48,9 @@ local function saveDatabase()
 end
 
 print("Downloading latest block catalogue from GitHub...")
-local catalogueRaw = http.get("https://raw.githubusercontent.com/oeed/Dapper/master/Server/catalogue")
-if not catalogueRaw then
+local catalogueHandle = http.get("https://raw.githubusercontent.com/oeed/Dapper/master/Server/catalogue")
+local catalogueRaw
+if not catalogueHandle then
 	print("Failed to download catalogue, trying to read a local copy.")
 	local h = fs.open("catalogue", "r")
 	if h then
@@ -55,6 +58,7 @@ if not catalogueRaw then
 		h.close()
 	end
 else
+	catalogueRaw = catalogueHandle.readAll()
 	local h = fs.open("catalogue", "w")
 	if h then
 		h.write(catalogueRaw)
@@ -64,15 +68,18 @@ end
 if not catalogueRaw then
 	error("Couldn't access a copy of the block catalogue!", 0)
 end
-local catalogue = textutils.unserialize(catalogueRaw)
+local catalogue = loadstring("return " .. catalogueRaw)()
 if not catalogue then
-	error("The catalogue was corrupt, sorry! Try deleting your local copy or check GitHub.")
+	error("The catalogue was corrupt, sorry! Try deleting your local copy or check GitHub.", 0)
 end
 
 modem.open(DAPPER_CLIENT_REQUEST_CHANNEL)
 modem.open(DAPPER_CLIENT_DATA_CHANNEL)
 modem.open(DAPPER_SCAN_DATA_CHANNEL)
 modem.open(DAPPER_SCAN_ACKNOWLEDGE_CHANNEL)
+modem.open(DAPPER_SCAN_NEXT_REQUEST_CHANNEL)
+modem.open(DAPPER_SCAN_NEXT_REPLY_CHANNEL)
+
 print("Awaiting requests...")
 
 -- Pixel = text, textColour, backgroundColour
@@ -131,6 +138,29 @@ while true do
 		end
 		saveDatabase()
 		-- broadcastMap()
+	elseif senderChannel == DAPPER_SCAN_NEXT_REQUEST_CHANNEL then
+		if type(message) == "table" then
+			if type(message.startX) == "number" and type(message.stopX) == "number" and type(message.startZ) == "number" and type(message.stopZ) == "number" then
+				print("Request for next block...")
+				local response = {}
+				local found = false
+				for x = message.startX, message.stopX, 1 do
+					for z = message.startZ, message.stopZ, 1 do
+						if not database.blocks[x] or not database.blocks[x][z] then
+							print("Found " .. x .. ", " .. z)
+							response.x = x
+							response.z = z
+							found = true
+							break
+						end
+						if found then
+							break
+						end
+					end
+				end
+				modem.transmit(DAPPER_SCAN_NEXT_REPLY_CHANNEL, 0, response)
+			end
+		end
 	elseif senderChannel == DAPPER_CLIENT_REQUEST_CHANNEL then
 		if message == DAPPER_CLIENT_REQUEST_MAP then
 			print("A client requested map data!")
