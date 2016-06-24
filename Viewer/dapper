@@ -18,6 +18,197 @@ term.write(splashText)
 term.setCursorPos(math.ceil((width - 7) / 2), logoY + logoHeight + 3)
 term.setTextColor(colours.lightBlue)
 term.write("by oeed")
-
 sleep(2)
-os.reboot()
+term.setBackgroundColour(colours.black)
+term.clear()
+
+local DAPPER_CLIENT_REQUEST_CHANNEL = 4261
+local DAPPER_CLIENT_DATA_CHANNEL = 4262
+local DAPPER_CLIENT_REQUEST_MAP = "mapdata"
+
+local modem = peripheral.find("modem")
+if not modem or not modem.isWireless() then
+	error("Please connect a wireless modem and re-run the program.", 0)
+end
+
+modem.open(DAPPER_CLIENT_REQUEST_CHANNEL)
+modem.open(DAPPER_CLIENT_DATA_CHANNEL)
+
+local bannerText = "Connecting..."
+local pixels
+local positionX, positionY, positionZ
+local mapX, mapZ
+local isPositionLocked = true
+local direction = "o"
+local zoom = 2
+local directionColour = colours.white
+local needsMapRedraw = true
+local function location()
+	local x, y, z = gps.locate(2)
+	if not x or not y or not z then
+		bannerText = "No GPS Signal"
+		return positionX, positionY, positionZ
+	end
+	if bannerText == "No GPS Signal" then
+		bannerText = nil
+	end
+	return math.floor(x + 0.5), math.floor(y + 0.5), math.floor(z + 0.5)
+end
+
+positionX, positionY, positionZ = location()
+mapX = positionX
+mapZ = positionZ
+
+local buffer = {}
+for x = 1, width do
+	buffer[x] = {}
+end
+local function drawMap()
+	if bannerText then
+		term.setCursorPos(1 + math.ceil((width - #bannerText) / 2), 1)
+		term.setBackgroundColour(colours.white)
+		term.clearLine()
+		term.setTextColour(colours.red)
+		term.write(bannerText)
+		for x = 1, width do
+			buffer[x][1] = nil
+		end
+	end
+	if pixels then
+		local xPixel = math.floor(mapX - (zoom * width) / 2)
+		local directionX, directionY = math.ceil(width / 2), math.ceil(height / 2)
+		for x = 1, width do
+			local xPixels = pixels[xPixel]
+			local zPixel = math.floor(mapZ - (zoom * height) / 2)
+			local xBuffer = buffer[x]
+			for y = 1, height do
+				if not bannerText or y > 1 then
+					local pixel = xPixels and xPixels[zPixel]
+					local character, textColour, backgroundColour = " ", colours.black, colours.black
+					if pixel then
+						character = pixel[1]
+						textColour = pixel[2]
+						backgroundColour = pixel[3]
+					end
+					if x == directionX and y == directionY then
+						textColour = directionColour
+						character = direction
+					end
+					local bufferPixel = xBuffer[y]
+					if not bufferPixel or bufferPixel[1] ~= character or bufferPixel[2] ~= textColour or bufferPixel[2] ~= backgroundColour then
+						xBuffer[y] = {character, textColour, backgroundColour}
+						term.setCursorPos(x, y)
+						term.setTextColour(textColour)
+						term.setBackgroundColour(backgroundColour)
+						term.write(character)
+					end
+				end
+				zPixel = zPixel + zoom
+			end
+			xPixel = xPixel + zoom
+		end
+	end
+	needsMapRedraw = false
+end
+
+modem.transmit(DAPPER_CLIENT_REQUEST_CHANNEL, DAPPER_CLIENT_DATA_CHANNEL, DAPPER_CLIENT_REQUEST_MAP)
+local mapTimeoutTime = os.clock() + 2
+local redrawTime = os.clock() + 0.05
+local updatePositionTime = os.clock() + 1
+local mapUpdateTime = os.clock() + 5
+local directionFlashTime = os.clock() + 0.5
+local updateTimer = os.startTimer(0.05)
+local dragX, dragY
+local didDrag = false
+while true do
+	local eventDetails = {os.pullEvent()}
+	local event = eventDetails[1]
+	if event == "timer" then
+		local timer = eventDetails[2]
+		if timer == updateTimer then
+			local clock = os.clock()
+			if mapTimeoutTime and mapTimeoutTime <= clock then
+				bannerText = "No Map Server Signal"
+			end
+			if updatePositionTime <= clock then
+				local oldPositionX, oldPositionZ = positionX, positionZ
+				positionX, positionY, positionZ = location()
+				updatePositionTime = os.clock() + 1
+				if positionX ~= oldPositionX or positionZ ~= oldPositionZ then
+					local xDiff, zDiff = positionX - oldPositionX, positionZ - oldPositionZ
+					if math.abs(zDiff) >= math.abs(xDiff) then
+						if zDiff < 0 then
+							direction = "^"
+						else
+							direction = "v"
+						end
+					else
+						if xDiff < 0 then
+							direction = "<"
+						else
+							direction = ">"
+						end
+					end
+					needsMapRedraw = true
+				end
+				if isPositionLocked then
+					mapX, mapZ = positionX, positionZ
+				end
+			end
+			if directionFlashTime <= clock then
+				directionColour = (directionColour == colours.grey) and colours.white or colours.grey
+				directionFlashTime = os.clock() + 0.5
+				needsMapRedraw = true
+			end
+			if redrawTime <= clock then
+				if needsMapRedraw then
+					drawMap()
+				end
+				redrawTime = os.clock() + 0.05
+			end
+			if mapUpdateTime <= clock then
+				modem.transmit(DAPPER_CLIENT_REQUEST_CHANNEL, DAPPER_CLIENT_DATA_CHANNEL, DAPPER_CLIENT_REQUEST_MAP)
+				mapTimeoutTime = os.clock() + 2
+				mapUpdateTime = os.clock() + 5
+			end
+			updateTimer = os.startTimer(0.05)
+		end
+	elseif event == "modem_message" then
+		local event, side, senderChannel, replyChannel, message, distance = unpack(eventDetails)
+		if senderChannel == DAPPER_CLIENT_DATA_CHANNEL then
+			needsMapRedraw = true
+			pixels = message
+			mapUpdateTimer = os.clock() + 5
+			mapTimeoutTime = false
+			if bannerText == "No Map Server Signal" or bannerText == "Connecting..." then
+				bannerText = nil
+			end
+		end
+	elseif event == "key" then
+		local key = eventDetails[2]
+		if key == keys.minus then
+			zoom = math.min(zoom + 1, 10)
+			needsMapRedraw = true
+		elseif key == keys.equals then
+			zoom = math.max(zoom - 1, 1)
+			needsMapRedraw = true
+		elseif key == keys.space then
+			isPositionLocked = true
+			mapX, mapZ = positionX, positionZ
+			needsMapRedraw = true
+		end
+	elseif event == "mouse_click" then
+		dragX, dragY = eventDetails[3], eventDetails[4]
+		didDrag = false
+	elseif event == "mouse_drag" then
+		local x, y = eventDetails[3], eventDetails[4]
+		isPositionLocked = false
+		mapX = mapX + (dragX - x) * zoom
+		mapZ = mapZ + (dragY - y) * zoom
+		dragX, dragY = x, y
+		needsMapRedraw = true
+		didDrag = true
+	elseif event == "mouse_up" and not didDrag then
+		dragX, dragY = eventDetails[3], eventDetails[4]
+	end
+end
