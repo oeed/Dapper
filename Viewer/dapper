@@ -40,7 +40,7 @@ local positionX, positionY, positionZ
 local mapX, mapZ
 local isPositionLocked = true
 local direction = "o"
-local zoom = 2
+local zoom = 1
 local directionColour = colours.white
 local needsMapRedraw = true
 local function location()
@@ -76,10 +76,11 @@ local function drawMap()
 	end
 	if pixels then
 		local xPixel = math.floor(mapX - (zoom * width) / 2)
-		local directionX, directionY = math.ceil(width / 2), math.ceil(height / 2)
+		local zPixelStart = math.floor(mapZ - (zoom * height) / 2)
+		local directionX, directionY = math.floor((positionX - xPixel) / zoom + 0.5), math.floor((positionZ - zPixelStart) / zoom + 0.5)
 		for x = 1, width do
 			local xPixels = pixels[xPixel]
-			local zPixel = math.floor(mapZ - (zoom * height) / 2)
+			local zPixel = zPixelStart
 			local xBuffer = buffer[x]
 			for y = 1, height do
 				if not bannerText or y > 1 then

@@ -43,7 +43,7 @@ modem.open(DAPPER_SCAN_NEXT_REPLY_CHANNEL)
 os.setComputerLabel("Dapper Mapper Scanner")
 print("WARNING: This program will use a TON of fuel. You should fill the ENTIRE turtle inventory with fuel if possible.")
 print("Press any key once fuel is loaded.")
--- os.pullEvent("key")
+os.pullEvent("key")
 
 local function location()
 	local x, y, z = gps.locate(2)

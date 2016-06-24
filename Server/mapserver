@@ -48,7 +48,7 @@ local function saveDatabase()
 end
 
 print("Downloading latest block catalogue from GitHub...")
-local catalogueHandle = http.get("https://raw.githubusercontent.com/oeed/Dapper/master/Server/catalogue")
+local catalogueHandle = http.get("https://raw.githubusercontent.com/oeed/Dapper/master/Server/catalogue?"..os.time())
 local catalogueRaw
 if not catalogueHandle then
 	print("Failed to download catalogue, trying to read a local copy.")
@@ -137,7 +137,6 @@ while true do
 			modem.transmit(DAPPER_SCAN_ACKNOWLEDGE_CHANNEL, 0, receivedScans)
 		end
 		saveDatabase()
-		-- broadcastMap()
 	elseif senderChannel == DAPPER_SCAN_NEXT_REQUEST_CHANNEL then
 		if type(message) == "table" then
 			if type(message.startX) == "number" and type(message.stopX) == "number" and type(message.startZ) == "number" and type(message.stopZ) == "number" then
@@ -153,9 +152,9 @@ while true do
 							found = true
 							break
 						end
-						if found then
-							break
-						end
+					end
+					if found then
+						break
 					end
 				end
 				modem.transmit(DAPPER_SCAN_NEXT_REPLY_CHANNEL, 0, response)
