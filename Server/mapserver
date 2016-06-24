@@ -6,10 +6,12 @@ end
 
 local DAPPER_CLIENT_REQUEST_CHANNEL = 4261
 local DAPPER_CLIENT_DATA_CHANNEL = 4262
-local DAPPER_SCAN_DATA_CHANNEL = 4271
+local DAPPER_SCAN_DATA_CHANNEL = 4263
+local DAPPER_SCAN_ACKNOWLEDGE_CHANNEL = 4264
 
 local DAPPER_CLIENT_REQUEST_MAP = "mapdata"
 
+os.setComputerLabel("Dapper Mapper Server")
 print("Dapper Mapper Server by oeed")
 local modem = peripheral.find("modem")
 if not modem or not modem.isWireless() then
@@ -35,22 +37,101 @@ else
 	}
 end
 
-modem.open(DAPPER_SCAN_CHANNEL)
-modem.open(DAPPER_CLIENT_CHANNEL)
+local function saveDatabase()
+	local h = fs.open(databasePath, "w")
+	if h then
+		h.write(textutils.serialize(database))
+		h.close()
+	end
+end
+
+print("Downloading latest block catalogue from GitHub...")
+local catalogueRaw = http.get("https://raw.githubusercontent.com/oeed/Dapper/master/Server/catalogue")
+if not catalogueRaw then
+	print("Failed to download catalogue, trying to read a local copy.")
+	local h = fs.open("catalogue", "r")
+	if h then
+		catalogueRaw = h.readAll()
+		h.close()
+	end
+else
+	local h = fs.open("catalogue", "w")
+	if h then
+		h.write(catalogueRaw)
+		h.close()
+	end
+end
+if not catalogueRaw then
+	error("Couldn't access a copy of the block catalogue!", 0)
+end
+local catalogue = textutils.unserialize(catalogueRaw)
+if not catalogue then
+	error("The catalogue was corrupt, sorry! Try deleting your local copy or check GitHub.")
+end
+
+modem.open(DAPPER_CLIENT_REQUEST_CHANNEL)
+modem.open(DAPPER_CLIENT_DATA_CHANNEL)
+modem.open(DAPPER_SCAN_DATA_CHANNEL)
+modem.open(DAPPER_SCAN_ACKNOWLEDGE_CHANNEL)
 print("Awaiting requests...")
+
+-- Pixel = text, textColour, backgroundColour
+local function identifyBlock(block)
+	local name, state = block.name, block.state
+	if catalogue[name] then
+		for i, catalogueItem in ipairs(catalogue[name]) do
+			local catalogueState, pixel = catalogueItem[1], catalogueItem[2]
+			local match = true
+			for k, v in pairs(catalogueState) do
+				if v ~= state[k] then
+					match = false
+					break
+				end
+			end
+			if match then
+				return pixel
+			end
+		end
+	end
+	return {"?", colours.lightGrey, colours.grey}
+end
 
 local function broadcastMap()
 	print("Broadcasting our map data...")
+	local pixels = {}
+	for x, xBlocks in pairs(database.blocks) do
+		local xPixels = {}
+		for y, block in pairs(xBlocks) do
+			xPixels[y] = identifyBlock(block)
+		end
+		pixels[x] = xPixels
+	end
+	modem.transmit(DAPPER_CLIENT_DATA_CHANNEL, 0, pixels)
 end
 
 while true do
 	local event, side, senderChannel, replyChannel, message, distance = os.pullEvent("modem_message")
-	if senderChannel == DAPPER_SCAN_CHANNEL then
+	if senderChannel == DAPPER_SCAN_DATA_CHANNEL then
 		print("Received new map data!")
-		if type(message) == "table" and type(message.x) == "number" and type(message.z) == "number" and type(message.z) == "number" and type(message.block) == "table" then
-			
+		if type(message) == "table" then
+			local receivedScans = {}
+			for i, scan in pairs(message) do
+				if type(scan.x) == "number" and type(scan.z) == "number" and type(scan.block) == "table" then
+					local xBlocks = database.blocks[scan.x]
+					if not xBlocks then
+						xBlocks = {}
+						database.blocks[scan.x] = xBlocks
+					end
+					xBlocks[scan.z] = scan.block
+					print("New data at " .. scan.x .. ", " ..  scan.z)
+					table.insert(receivedScans, {x = scan.x, z = scan.z})
+				end
+			end
+			modem.transmit(DAPPER_SCAN_ACKNOWLEDGE_CHANNEL, 0, receivedScans)
 		end
-	elseif senderChannel == DAPPER_CLIENT_CHANNEL then
+		saveDatabase()
+		-- broadcastMap()
+	elseif senderChannel == DAPPER_CLIENT_REQUEST_CHANNEL then
 		if message == DAPPER_CLIENT_REQUEST_MAP then
 			print("A client requested map data!")
 			broadcastMap()
