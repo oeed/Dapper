@@ -40,7 +40,12 @@
 		{ {}, {"*", colours.yellow, colours.lime} }
 	},
 	["minecraft:double_plant"] = {
-		{ {variant = "double_rose"}, {"%", colours.red, colours.lime} }
+		{ {variant = "sunflower"}, {"%", colours.yellow, colours.lime} },
+		{ {variant = "syringa"}, {"%", colours.magenta, colours.lime} },
+		{ {variant = "double_grass"}, {"%", colours.green, colours.lime} },
+		{ {variant = "double_fern"}, {"%", colours.green, colours.lime} },
+		{ {variant = "double_rose"}, {"%", colours.red, colours.lime} },
+		{ {variant = "paeonia"}, {"%", colours.pink, colours.lime} }
 	},
 	["minecraft:sand"] = {
 		{ {}, {" ", colours.yellow, colours.yellow} }
