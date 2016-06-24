@@ -1,0 +1,259 @@
+if not turtle then
+	error("The map scanner must be run with a turtle.", 0)
+end
+
+local args = {...}
+if #args < 2 then
+	print("Usage: mapscan <y-limit> <radius> <segments> <segment>")
+	print("Y-Limit should be the maximum Y coordinate (1 - 256) that the turtle scans from. This should be just a bit above the height of the landscape.")
+	print("Radius is the horizontal distance from the start position the turtle will scan.")
+	print("Segments (optional) is the number of segments to divide the scan in to (for using multiple turtles).")
+	print("Segment (optional) is the segment to scan.")
+	return
+end
+local yLimit = tonumber(args[1])
+if not yLimit or yLimit <= 1 or yLimit > 256 then
+	print("Y-Limit should be the maximum Y coordinate (1 - 256) that the turtle scans from. This should be just a bit above the height of the landscape.")
+	return
+end
+local radius = tonumber(args[2])
+if not radius or radius < 1 then
+	print("Radius is the horizontal distance from the start position the turtle will scan.")
+	return
+end
+local segments = tonumber(args[3])
+local segment
+if segments then
+	segment = tonumber(args[4])
+end
+
+local DAPPER_SCAN_DATA_CHANNEL = 4263
+local DAPPER_SCAN_ACKNOWLEDGE_CHANNEL = 4264
+
+print("Dapper Mapper Scanner by oeed")
+local modem = peripheral.find("modem")
+if not modem or not modem.isWireless() then
+	error("Please connect a wireless modem and re-run the program.", 0)
+end
+modem.open(DAPPER_SCAN_DATA_CHANNEL)
+modem.open(DAPPER_SCAN_ACKNOWLEDGE_CHANNEL)
+
+os.setComputerLabel("Dapper Mapper Scanner")
+print("WARNING: This program will use a TON of fuel. You should fill the ENTIRE turtle inventory with fuel if possible.")
+print("Press any key once fuel is loaded.")
+-- os.pullEvent("key")
+
+local function location()
+	local x, y, z = gps.locate(2)
+	if not x or not y or not z then
+		print("Unable to locate self using GPS... trying again in 5 seconds...")
+		sleep(5)
+		return location()
+	end
+	return x, y, z
+end
+
+local function checkFuel(amount)
+	amount = amount or 1
+	if turtle.getFuelLevel() < amount then
+		local slot = 1
+		repeat
+			turtle.select(slot)
+			slot = slot + 1
+		until turtle.refuel(1) or slot > 16
+		if turtle.getFuelLevel() < amount then
+			print("Turtle is out of fuel, enter more and press any key.")
+			os.pullEvent("key")
+			return checkFuel()
+		end
+	end
+end
+
+local function toY(destY)
+	local currX, currY, currZ = location()
+	local diffY = destY - currY
+	if diffY >= 1 then
+		-- We need to go up
+		checkFuel(diffY)
+		for i = 1, diffY do
+			turtle.up()
+		end
+	elseif diffY <= -1 then
+		-- We need to go down
+		checkFuel(math.abs(diffY))
+		for i = -1, diffY, -1 do
+			turtle.down()
+		end
+	end
+end
+
+local directions = {
+	X_POS = 1,
+	X_NEG = 2,
+	Z_POS = 3,
+	Z_NEG = 4,
+}
+local currentDirection
+
+local function toAxis(axis)
+	if axis == "x" then
+		if currentDirection == directions.X_POS then
+			return 1
+		elseif currentDirection == directions.X_NEG then
+			return -1
+		elseif currentDirection == directions.Z_NEG then
+			turtle.turnRight()
+			currentDirection = directions.X_POS
+			return 1
+		elseif currentDirection == directions.Z_POS then
+			turtle.turnLeft()
+			currentDirection = directions.X_POS
+			return 1
+		end
+	elseif axis == "z" then
+		if currentDirection == directions.Z_POS then
+			return 1
+		elseif currentDirection == directions.Z_NEG then
+			return -1
+		elseif currentDirection == directions.X_NEG then
+			turtle.turnLeft()
+			currentDirection = directions.Z_POS
+			return 1
+		elseif currentDirection == directions.X_POS then
+			turtle.turnRight()
+			currentDirection = directions.Z_POS
+			return 1
+		end
+	end
+end
+
+local function toX(destX)
+	local currX, currY, currZ = location()
+	local diffX = (destX - currX) * toAxis("x")
+	if diffX >= 1 then
+		-- We need to go up
+		checkFuel(diffX)
+		for i = 1, diffX do
+			turtle.forward()
+		end
+	elseif diffX <= -1 then
+		-- We need to go down
+		checkFuel(math.abs(diffX))
+		for i = -1, diffX, -1 do
+			turtle.back()
+		end
+	end
+end
+
+local function toZ(destZ)
+	local currX, currY, currZ = location()
+	local diffZ = (destZ - currZ) * toAxis("z")
+	if diffZ >= 1 then
+		-- We need to go up
+		checkFuel(diffZ)
+		for i = 1, diffZ do
+			turtle.forward()
+		end
+	elseif diffZ <= -1 then
+		-- We need to go down
+		checkFuel(math.abs(diffZ))
+		for i = -1, diffZ, -1 do
+			turtle.back()
+		end
+	end
+end
+
+local unsentScans = {}
+
+local function sendScans()
+	print("Sending scans..." .. #unsentScans)
+	modem.transmit(DAPPER_SCAN_DATA_CHANNEL, DAPPER_SCAN_ACKNOWLEDGE_CHANNEL, unsentScans)
+	parallel.waitForAny(function()
+		while #unsentScans > 0 do
+			local event, side, senderChannel, replyChannel, message, distance = os.pullEvent("modem_message")
+			if senderChannel == DAPPER_SCAN_ACKNOWLEDGE_CHANNEL and type(message) == "table" then
+				for _, messageScan in ipairs(message) do
+					-- loop through all our unsent scans and remove any with the same coordinates
+					for i, scan in ipairs(unsentScans) do
+						if messageScan.x == scan.x and messageScan.z == scan.z then
+							print("Scan received")
+							unsentScans[i] = nil
+						end
+					end
+				end
+			end
+		end
+	end, function()
+		sleep(1)
+	end)
+end
+
+local function scanDown()
+	local hit, block
+	repeat
+		checkFuel()
+		turtle.down()
+		hit, block = turtle.inspectDown()	
+	until hit
+	local x, y, z = location()
+	print("Found the block: " .. x .. ", " .. y .. ", " .. z)
+	block.y = y
+	table.insert(unsentScans, {x = x, z = z, block = block})
+	sendScans()
+end
+
+local homeX, homeY, homeZ = location()
+print("Determining direction...")
+checkFuel()
+turtle.forward()
+local newX, newY, newZ = location()
+print(newX, newY, newZ)
+print(homeX, homeY, homeZ )
+turtle.back()
+if newX > homeX then
+	currentDirection = directions.X_POS
+elseif newX < homeX then
+	currentDirection = directions.X_NEG
+elseif newZ > homeZ then
+	currentDirection = directions.Z_POS
+elseif newZ < homeZ then
+	currentDirection = directions.Z_NEG
+else
+	error("Failed to determine turtle direction (it probably couldn't move forward).")
+end
+
+
+toY(yLimit)
+local startX, stopX = homeX - radius, homeX + radius
+local startZ, stopZ = homeZ - radius, homeZ + radius
+if segments and segment then
+	local sizeX = stopX - startX
+	local sizeZ = stopZ - startZ
+	local segmentSizeX = sizeX / segments
+	local segmentSizeZ = sizeZ / segments
+	print(segmentSizeX)
+	local segmentNX, segmentNZ = segment % segments, math.ceil(segment / segments)
+	segmentNX = segmentNX == 0 and segments or segmentNX
+	print("Segment: " .. segmentNX .. ", " .. segmentNZ)
+	stopX = startX + math.floor(segmentNX * segmentSizeX)
+	startX = startX + math.floor((segmentNX - 1) * segmentSizeX) + (segmentNX == 1 and 0 or 1)
+	stopZ = startZ + math.floor(segmentNZ * segmentSizeZ)
+	startZ = startZ + math.floor((segmentNZ - 1) * segmentSizeZ) + (segmentNZ == 1 and 0 or 1)
+	print(startX .. " to " .. stopX)
+	print(startZ .. " to " .. stopZ)
+end
+for x = startX, stopX, 1 do
+	toX(x)
+	print("X: " .. x)
+	for z = startZ, stopZ, 1 do
+		print("Z: " .. z)
+		toZ(z)
+		scanDown()
+		toY(yLimit)
+	end
+end
+
+print("Scan complete, returning home.")
+toX(homeX)
+toZ(homeZ)
+toY(homeY)
