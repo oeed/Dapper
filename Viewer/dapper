@@ -116,7 +116,7 @@ modem.transmit(DAPPER_CLIENT_REQUEST_CHANNEL, DAPPER_CLIENT_DATA_CHANNEL, DAPPER
 local mapTimeoutTime = os.clock() + 2
 local redrawTime = os.clock() + 0.05
 local updatePositionTime = os.clock() + 1
-local mapUpdateTime = os.clock() + 5
+local mapUpdateTime = os.clock() + 30
 local directionFlashTime = os.clock() + 0.5
 local updateTimer = os.startTimer(0.05)
 local dragX, dragY
@@ -170,7 +170,7 @@ while true do
 			if mapUpdateTime <= clock then
 				modem.transmit(DAPPER_CLIENT_REQUEST_CHANNEL, DAPPER_CLIENT_DATA_CHANNEL, DAPPER_CLIENT_REQUEST_MAP)
 				mapTimeoutTime = os.clock() + 2
-				mapUpdateTime = os.clock() + 5
+				mapUpdateTime = os.clock() + 30
 			end
 			updateTimer = os.startTimer(0.05)
 		end
@@ -179,7 +179,7 @@ while true do
 		if senderChannel == DAPPER_CLIENT_DATA_CHANNEL then
 			needsMapRedraw = true
 			pixels = message
-			mapUpdateTimer = os.clock() + 5
+			mapUpdateTime = os.clock() + 50
 			mapTimeoutTime = false
 			if bannerText == "No Map Server Signal" or bannerText == "Connecting..." then
 				bannerText = nil
