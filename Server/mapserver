@@ -42,8 +42,17 @@ end
 local function saveDatabase()
 	local h = fs.open(databasePath, "w")
 	if h then
-		h.write(textutils.serialize(database))
+		local serialised = textutils.serialize(database)
+		local availableSpace = fs.getFreeSpace("/") + fs.getSize(databasePath)
+		if availableSpace > #serialised then
+			printError("WARNING! Insufficient space to save database!")
+		else
+			print("Saved database. Size: " .. #serialised .. "B")
+			h.write(serialised)
+		end
 		h.close()
+	else
+		printError("WARNING! Failed to save database (couldn't open file).")
 	end
 end
 
@@ -103,25 +112,13 @@ local function identifyBlock(block)
 	return {"?", colours.lightGrey, colours.grey}
 end
 
-local function broadcastMap()
-	print("Broadcasting our map data...")
-	local pixels = {}
-	for x, xBlocks in pairs(database.blocks) do
-		local xPixels = {}
-		for y, block in pairs(xBlocks) do
-			xPixels[y] = identifyBlock(block)
-		end
-		pixels[x] = xPixels
-	end
-	modem.transmit(DAPPER_CLIENT_DATA_CHANNEL, 0, pixels)
-end
-
 while true do
 	local event, side, senderChannel, replyChannel, message, distance = os.pullEvent("modem_message")
 	if senderChannel == DAPPER_SCAN_DATA_CHANNEL then
 		print("Received new map data!")
 		if type(message) == "table" then
 			local receivedScans = {}
+			local lastYield = os.clock()
 			for i, scan in pairs(message) do
 				if type(scan.x) == "number" and type(scan.z) == "number" and type(scan.block) == "table" then
 					local xBlocks = database.blocks[scan.x]
@@ -129,12 +126,21 @@ while true do
 						xBlocks = {}
 						database.blocks[scan.x] = xBlocks
 					end
+					if i % 200 == 199 then
+						local clock = os.clock()
+						if clock - lastYield >= 5 then
+							print("Yielding")
+							os.queueEvent("blah")
+							os.pullEvent()
+							lastYield = clock
+						end
+					end
 					xBlocks[scan.z] = scan.block
-					print("New data at " .. scan.x .. ", " ..  scan.z)
 					table.insert(receivedScans, {x = scan.x, z = scan.z})
 				end
 			end
 			modem.transmit(DAPPER_SCAN_ACKNOWLEDGE_CHANNEL, 0, receivedScans)
+			print("Added " .. #receivedScans .. " new blocks!")
 		end
 		saveDatabase()
 	elseif senderChannel == DAPPER_SCAN_NEXT_REQUEST_CHANNEL then
@@ -163,7 +169,15 @@ while true do
 	elseif senderChannel == DAPPER_CLIENT_REQUEST_CHANNEL then
 		if message == DAPPER_CLIENT_REQUEST_MAP then
 			print("A client requested map data!")
-			broadcastMap()
+			local pixels = {}
+			for x, xBlocks in pairs(database.blocks) do
+				local xPixels = {}
+				for y, block in pairs(xBlocks) do
+					xPixels[y] = identifyBlock(block)
+				end
+				pixels[x] = xPixels
+			end
+			modem.transmit(DAPPER_CLIENT_DATA_CHANNEL, 0, pixels)
 		end
 	end
 end
