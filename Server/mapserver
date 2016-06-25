@@ -44,7 +44,7 @@ local function saveDatabase()
 	if h then
 		local serialised = textutils.serialize(database)
 		local availableSpace = fs.getFreeSpace("/") + fs.getSize(databasePath)
-		if availableSpace > #serialised then
+		if availableSpace < #serialised then
 			printError("WARNING! Insufficient space to save database!")
 		else
 			print("Saved database. Size: " .. #serialised .. "B")
