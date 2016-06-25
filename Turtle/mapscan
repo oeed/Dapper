@@ -1,5 +1,5 @@
-if not turtle then
-	error("The map scanner must be run with a turtle.", 0)
+if not turtle and not commands then
+	error("The map scanner must be run with a turtle or command computer.", 0)
 end
 
 local args = {...}
@@ -41,9 +41,11 @@ modem.open(DAPPER_SCAN_NEXT_REQUEST_CHANNEL)
 modem.open(DAPPER_SCAN_NEXT_REPLY_CHANNEL)
 
 os.setComputerLabel("Dapper Mapper Scanner")
-print("WARNING: This program will use a TON of fuel. You should fill the ENTIRE turtle inventory with fuel if possible.")
-print("Press any key once fuel is loaded.")
-os.pullEvent("key")
+if turtle then
+	print("WARNING: This program will use a TON of fuel. You should fill the ENTIRE turtle inventory with fuel if possible.")
+	print("Press any key once fuel is loaded.")
+	os.pullEvent("key")
+end
 
 local function location()
 	local x, y, z = gps.locate(2)
@@ -178,7 +180,6 @@ local function sendScans()
 					-- loop through all our unsent scans and remove any with the same coordinates
 					for i, scan in ipairs(unsentScans) do
 						if messageScan.x == scan.x and messageScan.z == scan.z then
-							print("Scan received")
 							unsentScans[i] = nil
 						end
 					end
@@ -205,72 +206,114 @@ local function scanDown()
 end
 
 local homeX, homeY, homeZ = location()
-print("Determining direction...")
-checkFuel()
-turtle.forward()
-local newX, newY, newZ = location()
-print(newX, newY, newZ)
-print(homeX, homeY, homeZ )
-turtle.back()
-if newX > homeX then
-	currentDirection = directions.X_POS
-elseif newX < homeX then
-	currentDirection = directions.X_NEG
-elseif newZ > homeZ then
-	currentDirection = directions.Z_POS
-elseif newZ < homeZ then
-	currentDirection = directions.Z_NEG
-else
-	error("Failed to determine turtle direction (it probably couldn't move forward).", 0)
+if turtle then
+	print("Determining direction...")
+	checkFuel()
+	turtle.forward()
+	local newX, newY, newZ = location()
+	print(newX, newY, newZ)
+	print(homeX, homeY, homeZ )
+	turtle.back()
+	if newX > homeX then
+		currentDirection = directions.X_POS
+	elseif newX < homeX then
+		currentDirection = directions.X_NEG
+	elseif newZ > homeZ then
+		currentDirection = directions.Z_POS
+	elseif newZ < homeZ then
+		currentDirection = directions.Z_NEG
+	else
+		error("Failed to determine turtle direction (it probably couldn't move forward).", 0)
+	end
 end
 
 
-toY(yLimit)
-local startX, stopX = homeX - radius, homeX + radius
-local startZ, stopZ = homeZ - radius, homeZ + radius
-if not isFill then
-	for x = startX, stopX, 1 do
-		toX(x)
-		for z = startZ, stopZ, 1 do
-			toZ(z)
-			scanDown()
-			toY(yLimit)
+local xStart, xStop = homeX - radius, homeX + radius
+local zStart, zStop = homeZ - radius, homeZ + radius
+if turtle then
+	toY(yLimit)
+	if not isFill then
+		for x = xStart, xStop, 1 do
+			toX(x)
+			for z = zStart, zStop, 1 do
+				toZ(z)
+				scanDown()
+				toY(yLimit)
+			end
 		end
+	else
+		local nextX, nextZ
+		repeat
+			print("Requesting next block...")
+			modem.transmit(DAPPER_SCAN_NEXT_REQUEST_CHANNEL, DAPPER_SCAN_NEXT_REPLY_CHANNEL, {
+				xStart = xStart,
+				xStop = xStop,
+				zStart = zStart,
+				zStop = zStop,
+			})
+			parallel.waitForAny(function()
+				while true do
+					local event, side, senderChannel, replyChannel, message, distance = os.pullEvent("modem_message")
+					if senderChannel == DAPPER_SCAN_NEXT_REPLY_CHANNEL and type(message) == "table" then
+						nextX = message.x
+						nextZ = message.z
+						break
+					end
+				end
+			end, function()
+				sleep(5)
+				print("Timeout, going home.")
+				nextX, nextZ = nil, nil
+			end)
+			if nextX and nextZ then
+				toX(nextX)
+				toZ(nextZ)
+				scanDown()
+				toY(yLimit)	
+			end
+		until not nextX or not nextZ
 	end
+
+	print("Scan complete, returning home.")
+	toX(homeX)
+	toZ(homeZ)
+	toY(homeY)
 else
-	local nextX, nextZ
-	repeat
-		print("Requesting next block...")
-		modem.transmit(DAPPER_SCAN_NEXT_REQUEST_CHANNEL, DAPPER_SCAN_NEXT_REPLY_CHANNEL, {
-			startX = startX,
-			stopX = stopX,
-			startZ = startZ,
-			stopZ = stopZ,
-		})
-		parallel.waitForAny(function()
-			while true do
-				local event, side, senderChannel, replyChannel, message, distance = os.pullEvent("modem_message")
-				if senderChannel == DAPPER_SCAN_NEXT_REPLY_CHANNEL and type(message) == "table" then
-					nextX = message.x
-					nextZ = message.z
-					break
+	print("Scanning blocks...")
+	local BLOCK_COUNT_LIMIT = 4096
+	local xBlockCount, zBlockCount, yBlockCount = xStop - xStart + 1, zStop - zStart + 1, yLimit
+	print("B count: " .. xBlockCount)
+	local minSegmentCount = math.ceil((xBlockCount * zBlockCount * yBlockCount) / BLOCK_COUNT_LIMIT)
+	local xSegmentSize = math.ceil(xBlockCount / math.sqrt(minSegmentCount))
+	local xSegmentCount = math.ceil(xBlockCount / xSegmentSize)
+	local zSegmentSize = math.floor(zBlockCount / math.ceil((minSegmentCount / xSegmentCount)))
+	local zSegmentCount = math.ceil(zBlockCount / zSegmentSize)
+	local totalSegmentCount = xSegmentCount * zSegmentCount
+	local currentSegment = 1
+	for xSegment = 0, xSegmentCount - 1 do
+		local xSegmentStart = xStart + xSegment * xSegmentSize
+		local xSegmentStop = math.min(xSegmentStart + xSegmentSize, xStop) - 1
+		for zSegment = 0, zSegmentCount - 1 do
+			local zSegmentStart = zStart + zSegment * zSegmentSize
+			local zSegmentStop = math.min(zSegmentStart + zSegmentSize, zStop) - 1
+			print("Scanning (" .. math.floor(100 * (currentSegment / totalSegmentCount) + 0.5) .. "%): X: " .. xSegmentStart .. ", Z: " .. zSegmentStart .. " - X:" .. xSegmentStop .. ", Z: " .. zSegmentStop)
+			local xSize, zSize, ySize = xSegmentStop - xSegmentStart + 1, zSegmentStop - zSegmentStart + 1, yLimit
+			local segmentBlocks = commands.getBlockInfos(xSegmentStart, 1, zSegmentStart, xSegmentStop, yLimit, zSegmentStop)
+			for x = 1, xSize do
+				for z = 0, zSize - 1 do
+					for y = yLimit - 1, 0, -1 do
+						local block = segmentBlocks[x + z * xSize + y * xSize * zSize]
+						if block.name ~= "minecraft:air" then
+							table.insert(unsentScans, {x = x + xSegmentStart - 1, z = z + zSegmentStart, block = block})
+							break
+						end
+					end
 				end
 			end
-		end, function()
-			sleep(5)
-			print("Timeout, going home.")
-			nextX, nextZ = nil, nil
-		end)
-		if nextX and nextZ then
-			toX(nextX)
-			toZ(nextZ)
-			scanDown()
-			toY(yLimit)	
+			currentSegment = currentSegment + 1
 		end
-	until not nextX or not nextZ
+	end
+	print("Scan complete, sending scans...")
+	sendScans()
+	print("Complete!")
 end
-
-print("Scan complete, returning home.")
-toX(homeX)
-toZ(homeZ)
-toY(homeY)
