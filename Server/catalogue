@@ -110,9 +110,23 @@
 		{ {advanced=false,facing="south"}, {"_", colours.black, colours.lightGrey} },
 		{ {advanced=false,facing="west"}, {"[", colours.black, colours.lightGrey} },
 	},
-
-
-
-
-
+		["minecraft:concrete"] = {
+		{ {color="white"},{"0", colours.white, colours.lightGrey} },
+		{ {color="orange"},{"0", colours.orange, colours.lightGrey} },
+		{ {color="magenta"},{"0", colours.magenta, colours.lightGrey} },
+		{ {color="light_blue"},{"0", colours.lightBlue, colours.lightGrey} },
+		{ {color="yellow"},{"0", colours.yellow, colours.lightGrey} },
+		{ {color="lime"},{"0", colours.lime, colours.lightGrey} },
+		{ {color="pink"},{"0", colours.pink, colours.lightGrey} },
+		{ {color="grey"},{"0", colours.grey, colours.lightGrey} },
+		{ {color="silver"},{"0", colours.lightGrey, colours.grey} },
+		{ {color="cyan"},{"0", colours.cyan, colours.lightGrey} },
+		{ {color="purple"},{"0", colours.purple, colours.lightGrey} },
+		{ {color="blue"},{"0", colours.blue, colours.lightGrey} },
+		{ {color="light_blue"},{"0", colours.lightBlue, colours.lightGrey} },
+		{ {color="brown"},{"0", colours.brown, colours.lightGrey} },
+		{ {color="green"},{"0", colours.green, colours.lightGrey} },
+		{ {color="red"},{"0", colours.red, colours.lightGrey} },
+		{ {color="black"},{"0", colours.black, colours.lightGrey} },
+	},
 }
